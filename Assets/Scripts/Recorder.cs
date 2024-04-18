@@ -36,7 +36,12 @@ public class Recorder : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.P) && audioIn.clip != null)
         {
-            PlayAudio();
+            PlayAudio(audioIn);
+        }
+
+        if (Input.GetKeyDown(KeyCode.O) && audioOut.clip != null)
+        {
+            PlayAudio(audioOut);
         }
 
         if (Input.GetKeyDown(KeyCode.Space) && audioIn.clip != null)
@@ -54,7 +59,6 @@ public class Recorder : MonoBehaviour
         }
         
         audioIn.clip = Microphone.Start(null, false, 5, 44100);
-        //audioIn.Play();
         Debug.Log("Recording started");
     }
 
@@ -65,10 +69,10 @@ public class Recorder : MonoBehaviour
 
     }
 
-    void PlayAudio()
+    void PlayAudio(AudioSource audio)
     {
         Debug.Log("Playing audio");
-        audioIn.Play();
+        audio.Play();
     }
 
     private IEnumerator SendTextToServer(string url = "http://127.0.0.1:5000/test")
@@ -110,7 +114,6 @@ public class Recorder : MonoBehaviour
     private IEnumerator SendAudioToServer(string url = "http://127.0.0.1:5000/generate_question")
     {
         byte[] bytes = ConvertAudioClipToWav(audioIn.clip);
-        
 
         www = new UnityWebRequest(url, "POST")
         {
@@ -135,11 +138,16 @@ public class Recorder : MonoBehaviour
             byte[] audioBytes = www.downloadHandler.data;
 
             // Convert the byte array to a float array
-            float[] audioDataResponse = new float[audioBytes.Length / 4];
-            Buffer.BlockCopy(audioBytes, 0, audioDataResponse, 0, audioBytes.Length);
+            float[] audioDataResponse = new float[audioBytes.Length / 2];
+
+            for (int i = 0; i < audioBytes.Length; i += 2)
+            {
+                short sample = BitConverter.ToInt16(audioBytes, i);
+                audioDataResponse[i / 2] = sample / 32768.0f;
+            }
 
             // Create a new AudioClip and set the audio data
-            AudioClip audioClip = AudioClip.Create("ReceivedAudio", audioDataResponse.Length, 1, 44100, false);
+            AudioClip audioClip = AudioClip.Create("ReceivedAudio", audioDataResponse.Length, 1, 24000, false);
             audioClip.SetData(audioDataResponse, 0);
 
             audioOut.clip = audioClip;
