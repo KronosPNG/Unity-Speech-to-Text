@@ -10,43 +10,50 @@ using UnityEngine.Networking;
 
 public class Recorder : MonoBehaviour
 {
-    private AudioSource audioIn,
-                        audioOut;
+    // [SerializeField]
+    // private VADParameters? parameters = null;
+    // private IVoiceActivityDetector? vad;
+    // private UnityMicrophoneProxy? proxy;
+    
+    private AudioSource audioInput;
     public UnityWebRequest www;
 
+    public GameObject student;
+
     [Serializable]
-    private class TestData{
-        public string test;
+    private class TextData{
+        public string subject;
     }
 
     void Start()
     {
-        audioIn = GetComponent<AudioSource>();
-        audioOut = GetComponent<AudioSource>();
-        StartCoroutine(SendTextToServer());  
-        StartRecording();    
+        audioInput = GetComponent<AudioSource>();
+
+        student = GameObject.Find("Student");
+
+        StartCoroutine(SendTextToServer("Test"));  
     }
 
     void Update()
     {   
-        // if (Input.GetKey(KeyCode.Space))
-        // {
-        //     StopRecording();
-        // }
-
-        if (Input.GetKeyDown(KeyCode.P) && audioIn.clip != null)
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            PlayAudio(audioIn);
+            StartRecording();
         }
 
-        if (Input.GetKeyDown(KeyCode.O) && audioOut.clip != null)
+        if (Input.GetKeyDown(KeyCode.T) && audioInput.clip != null)
         {
-            PlayAudio(audioOut);
+            audioInput.Play();
         }
 
-        if (Input.GetKeyDown(KeyCode.Space) && audioIn.clip != null)
+        if (Input.GetKeyDown(KeyCode.Return) && audioInput.clip != null)
         {
             StartCoroutine(SendAudioToServer());
+        }
+
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            StartCoroutine(SendTextToServer("Test"));
         }
     }
 
@@ -58,7 +65,7 @@ public class Recorder : MonoBehaviour
             return;
         }
         
-        audioIn.clip = Microphone.Start(null, false, 5, 44100);
+        audioInput.clip = Microphone.Start(null, false, 5, 44100);
         Debug.Log("Recording started");
     }
 
@@ -69,17 +76,12 @@ public class Recorder : MonoBehaviour
 
     }
 
-    void PlayAudio(AudioSource audio)
-    {
-        Debug.Log("Playing audio");
-        audio.Play();
-    }
-
-    private IEnumerator SendTextToServer(string url = "http://127.0.0.1:5000/test")
+    private IEnumerator SendTextToServer(string text, string url = "http://127.0.0.1:5000/start")
     {  
+        Debug.Log("Sending text...");
 
-        var data = new TestData {
-            test = "TEST MESSAGE!"
+        var data = new TextData {
+            subject = text
         };
 
         string json = JsonUtility.ToJson(data);
@@ -113,7 +115,9 @@ public class Recorder : MonoBehaviour
 
     private IEnumerator SendAudioToServer(string url = "http://127.0.0.1:5000/generate_question")
     {
-        byte[] bytes = ConvertAudioClipToWav(audioIn.clip);
+        byte[] bytes = ConvertAudioClipToWav(audioInput.clip);
+
+        Debug.Log("Sending audio...");
 
         www = new UnityWebRequest(url, "POST")
         {
@@ -150,8 +154,9 @@ public class Recorder : MonoBehaviour
             AudioClip audioClip = AudioClip.Create("ReceivedAudio", audioDataResponse.Length, 1, 24000, false);
             audioClip.SetData(audioDataResponse, 0);
 
-            audioOut.clip = audioClip;
-            audioOut.Play();
+            QuestionManager qm = student.GetComponent<QuestionManager>();
+
+            qm.AddAudioClip(audioClip);
         }
     }
 
@@ -193,4 +198,5 @@ public class Recorder : MonoBehaviour
 
         return bytes;
     }
+
 }
